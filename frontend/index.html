@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetProbe — Network Connection Tester</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Chart.js for latency/speed history graphs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+
+  <!-- Google Fonts: Syne (display) + DM Mono (data/numbers) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+  <!-- ░░ BACKGROUND GRID ░░ -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <!-- ══════════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════════ -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">◈</span>
+        <span class="logo-text">NetProbe</span>
+      </div>
+
+      <div class="header-status">
+        <span class="status-dot" id="api-status-dot"></span>
+        <span class="status-label" id="api-status-label">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════
+       MAIN CONTENT
+  ══════════════════════════════════════════ -->
+  <main class="main-content">
+
+    <!-- ── Summary Cards ───────────────────────────────── -->
+    <section class="section" id="section-summary">
+      <h2 class="section-title">Overview</h2>
+      <div class="cards-grid">
+
+        <div class="card card--stat" id="card-ping">
+          <div class="card-label">Avg Latency</div>
+          <div class="card-value" id="stat-ping">—</div>
+          <div class="card-unit">ms</div>
+        </div>
+
+        <div class="card card--stat" id="card-download">
+          <div class="card-label">Avg Download</div>
+          <div class="card-value" id="stat-download">—</div>
+          <div class="card-unit">Mbps</div>
+        </div>
+
+        <div class="card card--stat" id="card-upload">
+          <div class="card-label">Avg Upload</div>
+          <div class="card-value" id="stat-upload">—</div>
+          <div class="card-unit">Mbps</div>
+        </div>
+
+        <div class="card card--stat" id="card-tests">
+          <div class="card-label">Tests Run</div>
+          <div class="card-value" id="stat-tests">—</div>
+          <div class="card-unit">total</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── Run Tests ────────────────────────────────────── -->
+    <section class="section" id="section-run">
+      <h2 class="section-title">Run Tests</h2>
+      <div class="test-panel">
+
+        <!-- Ping Test -->
+        <div class="test-block">
+          <div class="test-block-header">
+            <span class="test-icon">◎</span>
+            <span class="test-name">Ping Test</span>
+          </div>
+          <div class="test-controls">
+            <label class="input-label" for="ping-host">Host</label>
+            <input class="input-field" id="ping-host" type="text" value="8.8.8.8" placeholder="e.g. 8.8.8.8" />
+            <label class="input-label" for="ping-count">Packets</label>
+            <input class="input-field input-field--short" id="ping-count" type="number" value="4" min="1" max="20" />
+            <button class="btn btn--run" id="btn-ping">Run Ping</button>
+          </div>
+          <div class="result-box" id="result-ping">
+            <span class="result-placeholder">Results will appear here…</span>
+          </div>
+        </div>
+
+        <!-- Speed Test -->
+        <div class="test-block">
+          <div class="test-block-header">
+            <span class="test-icon">⇅</span>
+            <span class="test-name">Speed Test</span>
+          </div>
+          <div class="test-controls">
+            <p class="test-note">Connects to the nearest speedtest.net server. Takes 10–30 seconds.</p>
+            <button class="btn btn--run" id="btn-speed">Run Speed Test</button>
+          </div>
+          <div class="result-box" id="result-speed">
+            <span class="result-placeholder">Results will appear here…</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── Network Info ─────────────────────────────────── -->
+    <section class="section" id="section-network">
+      <h2 class="section-title">Network Info</h2>
+      <div class="info-grid">
+
+        <!-- Interfaces -->
+        <div class="card card--table">
+          <div class="card-header-row">
+            <span class="card-title">Interfaces</span>
+            <button class="btn btn--small" id="btn-interfaces">Refresh</button>
+          </div>
+          <div class="table-wrap" id="table-interfaces">
+            <span class="result-placeholder">Click Refresh to load…</span>
+          </div>
+        </div>
+
+        <!-- Active Connections -->
+        <div class="card card--table">
+          <div class="card-header-row">
+            <span class="card-title">Active Connections</span>
+            <button class="btn btn--small" id="btn-connections">Refresh</button>
+          </div>
+          <div class="table-wrap" id="table-connections">
+            <span class="result-placeholder">Click Refresh to load…</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── History Charts ───────────────────────────────── -->
+    <section class="section" id="section-history">
+      <h2 class="section-title">History</h2>
+      <div class="charts-grid">
+
+        <div class="card card--chart">
+          <div class="card-header-row">
+            <span class="card-title">Latency Over Time</span>
+            <button class="btn btn--small" id="btn-refresh-ping-chart">Refresh</button>
+          </div>
+          <canvas id="chart-ping" height="180"></canvas>
+        </div>
+
+        <div class="card card--chart">
+          <div class="card-header-row">
+            <span class="card-title">Speed Over Time</span>
+            <button class="btn btn--small" id="btn-refresh-speed-chart">Refresh</button>
+          </div>
+          <canvas id="chart-speed" height="180"></canvas>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ══════════════════════════════════════════
+       FOOTER
+  ══════════════════════════════════════════ -->
+  <footer class="site-footer">
+    <span>NetProbe &mdash; 3rd Year Project</span>
+    <span id="footer-time"></span>
+  </footer>
+
+  <!-- ── Loading Overlay (shown during long ops) ── -->
+  <div class="loading-overlay" id="loading-overlay" aria-hidden="true">
+    <div class="loading-spinner"></div>
+    <p class="loading-msg" id="loading-msg">Running test…</p>
+  </div>
+
+</body>
+</html>
