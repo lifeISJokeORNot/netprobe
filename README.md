@@ -1,4 +1,4 @@
-# ◈ NetProbe — Automated Network Connection Tester
+# NetProbe — Automated Network Connection Tester
 
 > Automated testing of network connections and performance monitoring, with a live web dashboard.
 
