@@ -1,10 +1,10 @@
 # ◈ NetProbe — Automated Network Connection Tester
 
-> A 3rd year student project for automated testing of network connections and performance monitoring, with a live web dashboard.
+> Automated testing of network connections and performance monitoring, with a live web dashboard.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 project/
@@ -23,7 +23,7 @@ project/
 
 ---
 
-## ⚙️ Requirements
+## Requirements
 
 - Python 3.10 or higher
 - A working internet connection (for speed tests and ping to external hosts)
@@ -31,7 +31,7 @@ project/
 
 ---
 
-## 🚀 Installation & Setup
+## Installation & Setup
 
 ### 1. Clone or download the project
 
@@ -77,7 +77,7 @@ The status dot in the top-right corner will turn **green** when the frontend is 
 
 ---
 
-## 🌐 API Endpoints
+## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -96,7 +96,7 @@ FastAPI generates a Swagger UI automatically — great for testing and demos.
 
 ---
 
-## 🧪 Features
+## Features
 
 - **Ping Test** — measures latency (min/avg/max) and packet loss to any host
 - **Speed Test** — measures download and upload speed via speedtest.net
@@ -107,7 +107,7 @@ FastAPI generates a Swagger UI automatically — great for testing and demos.
 
 ---
 
-## 🐧 Linux Note — Ping Permissions
+## Linux Note — Ping Permissions
 
 On Linux, `ping3` may require root privileges to send ICMP packets. If the ping test fails, either:
 
@@ -125,13 +125,13 @@ The app will automatically fall back to the system `ping` command if `ping3` fai
 
 ---
 
-## 🪟 Windows Note
+## Windows Note
 
 No extra setup needed. Run everything normally. Make sure your firewall allows Python to access the network.
 
 ---
 
-## 🗄️ Database
+## Database
 
 Test results are stored in `backend/results.db` (SQLite).  
 This file is created automatically on first run. You can open it with any SQLite viewer such as [DB Browser for SQLite](https://sqlitebrowser.org/).
@@ -140,7 +140,7 @@ To clear all history, delete `results.db` and restart the server — it will be 
 
 ---
 
-## 📦 Dependencies
+## Dependencies
 
 | Package | Purpose |
 |---------|---------|
@@ -150,13 +150,6 @@ To clear all history, delete `results.db` and restart the server — it will be 
 | `ping3` | Pure Python ping (ICMP) |
 | `speedtest-cli` | Download/upload speed measurement |
 | `sqlite3` | Built into Python — no install needed |
-
----
-
-## 👥 Team
-
-3rd Year Software Engineering Project  
-Built with Python, FastAPI, and vanilla JavaScript.
 
 ---
 
