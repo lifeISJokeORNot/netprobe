@@ -153,6 +153,6 @@ To clear all history, delete `results.db` and restart the server — it will be 
 
 ---
 
-## 📄 License
+## License
 
 For academic use only.
