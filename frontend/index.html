@@ -46,7 +46,13 @@
 
     <!-- ── Summary Cards ───────────────────────────────── -->
     <section class="section" id="section-summary">
-      <h2 class="section-title">Overview</h2>
+      <div class="section-title-row">
+        <h2 class="section-title">Overview</h2>
+        <div class="section-actions">
+          <button class="btn btn--small" id="btn-history-modal">⏱ History</button>
+          <button class="btn btn--small btn--reset" id="btn-reset">↺ Reset</button>
+        </div>
+      </div>
       <div class="cards-grid">
 
         <div class="card card--stat" id="card-ping">
@@ -180,6 +186,36 @@
     <span>NetProbe &mdash; 3rd Year Project</span>
     <span id="footer-time"></span>
   </footer>
+
+  <!-- ── History Modal ── -->
+  <div class="modal-backdrop" id="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">⏱ Test History</span>
+        <div class="modal-controls">
+          <select class="input-field input-field--select" id="modal-filter">
+            <option value="all">All Tests</option>
+            <option value="ping">Ping Only</option>
+            <option value="speed">Speed Only</option>
+          </select>
+          <button class="btn btn--small modal-close" id="btn-modal-close">✕ Close</button>
+        </div>
+      </div>
+
+      <div class="modal-meta">
+        Showing last <strong>31</strong> records (circular queue)
+        &nbsp;·&nbsp; <span id="modal-count">0</span> loaded
+      </div>
+
+      <div class="modal-body">
+        <div class="table-wrap" id="modal-table">
+          <span class="result-placeholder">Loading history…</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
 
   <!-- ── Loading Overlay (shown during long ops) ── -->
   <div class="loading-overlay" id="loading-overlay" aria-hidden="true">

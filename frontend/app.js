@@ -47,6 +47,17 @@ const els = {
 
   // Footer clock
   footerTime: $("footer-time"),
+
+  // Overview actions
+  btnReset:        $("btn-reset"),
+  btnHistoryModal: $("btn-history-modal"),
+
+  // History modal
+  modalBackdrop: $("modal-backdrop"),
+  btnModalClose: $("btn-modal-close"),
+  modalFilter:   $("modal-filter"),
+  modalTable:    $("modal-table"),
+  modalCount:    $("modal-count"),
 };
 
 // ── Chart instances (kept so we can destroy & redraw) ─────────────────────────
@@ -524,3 +535,141 @@ async function init() {
 }
 
 init();
+
+// ── Circular Queue (size 31) ──────────────────────────────────────────────────
+
+class CircularQueue {
+  constructor(maxSize = 31) {
+    this.maxSize = maxSize;
+    this.queue   = [];
+  }
+
+  /** Add one record. If full, drop the oldest. */
+  enqueue(record) {
+    if (this.queue.length >= this.maxSize) this.queue.shift();
+    this.queue.push(record);
+  }
+
+  /** Bulk-load an array, keeping only the last maxSize entries. */
+  loadAll(records) {
+    this.queue = records.slice(-this.maxSize);
+  }
+
+  /** Return all records newest-first (for display). */
+  toArray() { return [...this.queue].reverse(); }
+
+  get size() { return this.queue.length; }
+}
+
+const historyQueue = new CircularQueue(31);
+
+// ── Reset Overview ────────────────────────────────────────────────────────────
+
+function resetOverview() {
+  els.statPing.textContent     = "—";
+  els.statDownload.textContent = "—";
+  els.statUpload.textContent   = "—";
+  els.statTests.textContent    = "—";
+}
+
+// ── History Modal ─────────────────────────────────────────────────────────────
+
+async function openHistoryModal() {
+  try {
+    const data = await apiFetch("/history?limit=31");
+    // API returns newest-first; reverse so queue is oldest→newest
+    historyQueue.loadAll((data.records || []).reverse());
+  } catch { /* use whatever is already in the queue */ }
+
+  renderModalTable(els.modalFilter.value);
+  els.modalBackdrop.classList.add("active");
+  els.modalBackdrop.setAttribute("aria-hidden", "false");
+}
+
+function closeHistoryModal() {
+  els.modalBackdrop.classList.remove("active");
+  els.modalBackdrop.setAttribute("aria-hidden", "true");
+}
+
+function renderModalTable(filter = "all") {
+  let records = historyQueue.toArray();   // newest first
+  if (filter === "ping")  records = records.filter(r => r.test_type === "ping");
+  if (filter === "speed") records = records.filter(r => r.test_type === "speed");
+
+  els.modalCount.textContent = records.length;
+
+  if (!records.length) {
+    els.modalTable.innerHTML = `<span class="result-placeholder">No records found.</span>`;
+    return;
+  }
+
+  const rows = records.map(r => {
+    const isPing  = r.test_type === "ping";
+    const isSpeed = r.test_type === "speed";
+
+    const badge = isPing
+      ? `<span class="badge badge--ping">ping</span>`
+      : `<span class="badge badge--speed">speed</span>`;
+
+    let metric  = "—";
+    let metric2 = "—";
+
+    if (isPing) {
+      if (r.latency_avg_ms     != null) metric  = `${r.latency_avg_ms} ms avg`;
+      if (r.packet_loss_percent != null) metric2 = `${r.packet_loss_percent}% loss`;
+    }
+    if (isSpeed) {
+      if (r.download_mbps != null) metric  = `↓ ${r.download_mbps} Mbps`;
+      if (r.upload_mbps   != null) metric2 = `↑ ${r.upload_mbps} Mbps`;
+    }
+
+    const statusClass =
+      r.status === "success"                               ? "td-status-established" :
+      r.status === "unreachable" || r.status === "error"  ? "td-status-other"        : "";
+
+    return `
+      <tr>
+        <td>${badge}</td>
+        <td style="font-family:var(--font-mono);font-size:0.72rem">${shortTime(r.timestamp)}</td>
+        <td>${r.host ?? r.server_name ?? "—"}</td>
+        <td style="font-family:var(--font-mono)">${metric}</td>
+        <td style="font-family:var(--font-mono)">${metric2}</td>
+        <td class="${statusClass}">${r.status ?? "—"}</td>
+      </tr>`;
+  }).join("");
+
+  els.modalTable.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th><th>Time</th><th>Host / Server</th>
+          <th>Primary</th><th>Secondary</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── New Event Listeners ───────────────────────────────────────────────────────
+
+// Reset overview cards
+els.btnReset.addEventListener("click", resetOverview);
+
+// Open history modal
+els.btnHistoryModal.addEventListener("click", openHistoryModal);
+
+// Close modal — button or clicking the dark backdrop
+els.btnModalClose.addEventListener("click", closeHistoryModal);
+els.modalBackdrop.addEventListener("click", e => {
+  if (e.target === els.modalBackdrop) closeHistoryModal();
+});
+
+// Close modal with Escape key
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeHistoryModal();
+});
+
+// Filter dropdown inside modal — re-render without re-fetching
+els.modalFilter.addEventListener("change", e => {
+  renderModalTable(e.target.value);
+});
