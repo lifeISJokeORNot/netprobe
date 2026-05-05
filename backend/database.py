@@ -1,183 +1,109 @@
 """
-database.py — SQLite storage for test results.
-Called by main.py to save and retrieve ping/speed history.
-
-No extra dependencies needed — sqlite3 is part of Python's standard library.
+database.py — SQLite storage (v2)
+BUG FIX: check_same_thread=False added for multi-threaded FastAPI use.
+New: anomaly log table.
 """
 
-import sqlite3
-import json
+import sqlite3, json
 from datetime import datetime
 
-DB_PATH = "results.db"  # created in the same folder as main.py
-
-
-# ── Setup ─────────────────────────────────────────────────────────────────────
+DB_PATH = "results.db"
 
 def init_db():
-    """
-    Create the results table if it doesn't exist yet.
-    Called once on server startup from main.py.
-    """
     with _connect() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS results (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                test_type   TEXT    NOT NULL,          -- 'ping' or 'speed'
-                timestamp   TEXT    NOT NULL,          -- ISO datetime string
-                data        TEXT    NOT NULL           -- full result as JSON
-            )
-        """)
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                test_type TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                data TEXT NOT NULL
+            )""")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS anomalies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                test_type TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                data TEXT NOT NULL
+            )""")
         conn.commit()
 
-
-# ── Write ─────────────────────────────────────────────────────────────────────
-
-def save_result(test_type: str, result: dict):
-    """
-    Save a test result to the database.
-
-    - test_type : 'ping' or 'speed'
-    - result    : the dict returned by tester.py functions
-    """
-    timestamp = result.get("timestamp", datetime.now().isoformat())
-    data_json = json.dumps(result)
-
+def save_result(test_type, result):
+    ts = result.get("timestamp", datetime.now().isoformat())
     with _connect() as conn:
-        conn.execute(
-            "INSERT INTO results (test_type, timestamp, data) VALUES (?, ?, ?)",
-            (test_type, timestamp, data_json),
-        )
+        conn.execute("INSERT INTO results (test_type, timestamp, data) VALUES (?,?,?)",
+                     (test_type, ts, json.dumps(result)))
         conn.commit()
 
+def save_anomaly(anomaly):
+    with _connect() as conn:
+        conn.execute("INSERT INTO anomalies (timestamp, test_type, severity, data) VALUES (?,?,?,?)",
+                     (anomaly["timestamp"], anomaly["test_type"], anomaly["severity"], json.dumps(anomaly)))
+        conn.commit()
 
-# ── Read ──────────────────────────────────────────────────────────────────────
-
-def get_history(test_type: str = None, limit: int = 50) -> list[dict]:
-    """
-    Retrieve past results from the database.
-
-    - test_type : optional filter ('ping' or 'speed'). None = return all.
-    - limit     : max number of rows (most recent first).
-
-    Returns a list of dicts, each containing:
-        id, test_type, timestamp, and all fields from the original result.
-    """
+def get_history(test_type=None, limit=50):
     with _connect() as conn:
         if test_type:
-            cursor = conn.execute(
-                """
-                SELECT id, test_type, timestamp, data
-                FROM results
-                WHERE test_type = ?
-                ORDER BY id DESC
-                LIMIT ?
-                """,
-                (test_type, limit),
-            )
+            rows = conn.execute("SELECT id,test_type,timestamp,data FROM results WHERE test_type=? ORDER BY id DESC LIMIT ?", (test_type, limit)).fetchall()
         else:
-            cursor = conn.execute(
-                """
-                SELECT id, test_type, timestamp, data
-                FROM results
-                ORDER BY id DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
-
-        rows = cursor.fetchall()
-
+            rows = conn.execute("SELECT id,test_type,timestamp,data FROM results ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     records = []
     for row in rows:
-        record = {
-            "id": row[0],
-            "test_type": row[1],
-            "timestamp": row[2],
-        }
-        # Merge the stored JSON fields directly into the record
-        try:
-            record.update(json.loads(row[3]))
-        except json.JSONDecodeError:
-            record["raw"] = row[3]   # fallback: expose raw string
-
-        records.append(record)
-
+        r = {"id": row[0], "test_type": row[1], "timestamp": row[2]}
+        try: r.update(json.loads(row[3]))
+        except: r["raw"] = row[3]
+        records.append(r)
     return records
 
-
-def delete_history(test_type: str = None):
-    """
-    Delete stored results.
-    Useful for a 'Clear history' button in the dashboard later.
-
-    - test_type : if provided, deletes only that type. None = delete everything.
-    """
+def get_anomaly_log(limit=20):
     with _connect() as conn:
-        if test_type:
-            conn.execute("DELETE FROM results WHERE test_type = ?", (test_type,))
-        else:
-            conn.execute("DELETE FROM results")
-        conn.commit()
+        rows = conn.execute("SELECT id,timestamp,test_type,severity,data FROM anomalies ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    records = []
+    for row in rows:
+        r = {"id": row[0], "timestamp": row[1], "test_type": row[2], "severity": row[3]}
+        try: r.update(json.loads(row[4]))
+        except: pass
+        records.append(r)
+    return records
 
-
-def get_stats_summary() -> dict:
-    """
-    Return quick aggregate stats for the dashboard header/summary cards.
-    e.g. average ping latency and average download speed across all saved tests.
-    """
+def get_stats_summary():
     with _connect() as conn:
-        # Average ping latency
-        ping_cursor = conn.execute(
-            "SELECT data FROM results WHERE test_type = 'ping' ORDER BY id DESC LIMIT 20"
-        )
-        ping_rows = ping_cursor.fetchall()
+        ping_rows  = conn.execute("SELECT data FROM results WHERE test_type='ping'  ORDER BY id DESC LIMIT 50").fetchall()
+        speed_rows = conn.execute("SELECT data FROM results WHERE test_type='speed' ORDER BY id DESC LIMIT 20").fetchall()
+        total      = conn.execute("SELECT COUNT(*) FROM results").fetchone()[0]
+        anomaly_ct = conn.execute("SELECT COUNT(*) FROM anomalies").fetchone()[0]
 
-        # Average speed
-        speed_cursor = conn.execute(
-            "SELECT data FROM results WHERE test_type = 'speed' ORDER BY id DESC LIMIT 10"
-        )
-        speed_rows = speed_cursor.fetchall()
+    def _parse(rows):
+        out = []
+        for row in rows:
+            try: out.append(json.loads(row[0]))
+            except: pass
+        return out
 
-    # Compute averages from stored JSON
-    ping_avgs = []
-    for row in ping_rows:
-        try:
-            data = json.loads(row[0])
-            val = data.get("latency_avg_ms")
-            if val is not None:
-                ping_avgs.append(val)
-        except json.JSONDecodeError:
-            continue
-
-    download_avgs = []
-    upload_avgs = []
-    for row in speed_rows:
-        try:
-            data = json.loads(row[0])
-            dl = data.get("download_mbps")
-            ul = data.get("upload_mbps")
-            if dl is not None:
-                download_avgs.append(dl)
-            if ul is not None:
-                upload_avgs.append(ul)
-        except json.JSONDecodeError:
-            continue
+    pings, speeds = _parse(ping_rows), _parse(speed_rows)
 
     def avg(lst):
-        return round(sum(lst) / len(lst), 2) if lst else None
+        lst = [x for x in lst if x is not None]
+        return round(sum(lst)/len(lst), 2) if lst else None
 
     return {
-        "avg_ping_ms": avg(ping_avgs),
-        "avg_download_mbps": avg(download_avgs),
-        "avg_upload_mbps": avg(upload_avgs),
-        "total_ping_tests": len(ping_avgs),
-        "total_speed_tests": len(download_avgs),
+        "total_tests":       total,
+        "total_anomalies":   anomaly_ct,
+        "avg_ping_ms":       avg([p.get("latency_avg_ms") for p in pings]),
+        "avg_packet_loss":   avg([p.get("packet_loss_percent") for p in pings]),
+        "avg_quality_score": avg([p.get("quality", {}).get("score") for p in pings]),
+        "avg_download_mbps": avg([s.get("download_mbps") for s in speeds]),
+        "avg_upload_mbps":   avg([s.get("upload_mbps")   for s in speeds]),
+        "best_download_mbps": max((s.get("download_mbps") for s in speeds if s.get("download_mbps")), default=None),
+        "best_ping_ms":       min((p.get("latency_avg_ms") for p in pings  if p.get("latency_avg_ms")), default=None),
     }
 
+def delete_history(test_type=None):
+    with _connect() as conn:
+        if test_type: conn.execute("DELETE FROM results WHERE test_type=?", (test_type,))
+        else:         conn.execute("DELETE FROM results")
+        conn.commit()
 
-# ── Internal ──────────────────────────────────────────────────────────────────
-
-def _connect() -> sqlite3.Connection:
-    """Open a connection to the SQLite database file."""
-    return sqlite3.connect(DB_PATH)
+def _connect():
+    # BUG FIX: check_same_thread=False required for FastAPI's multi-threaded env
+    return sqlite3.connect(DB_PATH, check_same_thread=False)

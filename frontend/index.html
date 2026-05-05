@@ -1,225 +1,337 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NetProbe — Network Connection Tester</title>
-  <link rel="stylesheet" href="style.css" />
-
-  <!-- Chart.js for latency/speed history graphs -->
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NetProbe — Network Tester</title>
+  <link rel="stylesheet" href="style.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
-
-  <!-- Google Fonts: Syne (display) + DM Mono (data/numbers) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
   <script src="app.js" defer></script>
 </head>
 <body>
 
-  <!-- ░░ BACKGROUND GRID ░░ -->
-  <div class="bg-grid" aria-hidden="true"></div>
-  <div class="bg-glow" aria-hidden="true"></div>
+  <div class="bg-mesh" aria-hidden="true"></div>
 
-  <!-- ══════════════════════════════════════════
-       HEADER
-  ══════════════════════════════════════════ -->
+  <!-- HEADER -->
   <header class="site-header">
     <div class="header-inner">
       <div class="logo">
-        <span class="logo-icon">◈</span>
-        <span class="logo-text">NetProbe</span>
+        <div class="logo-ring" id="logo-ring">
+          <svg viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="17" stroke="var(--border)" stroke-width="1.5"/>
+            <circle cx="20" cy="20" r="17" stroke="url(#ring-grad)" stroke-width="1.5"
+              stroke-dasharray="107" stroke-dashoffset="107"
+              id="ring-progress" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="ring-grad" x1="0" y1="0" x2="40" y2="40">
+                <stop offset="0%" stop-color="var(--accent)"/>
+                <stop offset="100%" stop-color="var(--accent2)"/>
+              </linearGradient>
+            </defs>
+            <text x="20" y="24" text-anchor="middle" id="ring-grade"
+              font-family="JetBrains Mono" font-size="11" font-weight="500"
+              fill="var(--text-primary)">—</text>
+          </svg>
+        </div>
+        <div class="logo-text-wrap">
+          <span class="logo-name">NetProbe</span>
+          <span class="logo-sub" id="api-status-label">Connecting…</span>
+        </div>
       </div>
 
-      <div class="header-status">
+      <nav class="header-nav" id="header-nav">
+        <button class="nav-btn active" data-section="overview">Overview</button>
+        <button class="nav-btn" data-section="tests">Tests</button>
+        <button class="nav-btn" data-section="network">Network</button>
+        <button class="nav-btn" data-section="anomalies">
+          Anomalies <span class="nav-badge" id="anomaly-badge" style="display:none">0</span>
+        </button>
+        <button class="nav-btn" data-section="history">History</button>
+      </nav>
+
+      <div class="header-actions">
+        <button class="btn btn--icon" id="btn-theme" title="Toggle theme">☾</button>
         <span class="status-dot" id="api-status-dot"></span>
-        <span class="status-label" id="api-status-label">Connecting…</span>
       </div>
     </div>
   </header>
 
-  <!-- ══════════════════════════════════════════
-       MAIN CONTENT
-  ══════════════════════════════════════════ -->
+  <!-- MAIN -->
   <main class="main-content">
 
-    <!-- ── Summary Cards ───────────────────────────────── -->
-    <section class="section" id="section-summary">
-      <div class="section-title-row">
-        <h2 class="section-title">Overview</h2>
+    <!-- ANOMALY BANNER -->
+    <div class="anomaly-banner" id="anomaly-banner" style="display:none">
+      <span class="ab-icon">⚠</span>
+      <span class="ab-text" id="anomaly-banner-text">Anomaly detected</span>
+      <button class="ab-dismiss" id="btn-dismiss-banner">✕</button>
+    </div>
+
+    <!-- ── OVERVIEW ──────────────────────────────────────────────── -->
+    <section class="page-section active" id="section-overview">
+      <div class="section-header">
+        <h2 class="section-heading">Overview</h2>
         <div class="section-actions">
-          <button class="btn btn--small" id="btn-history-modal">⏱ History</button>
-          <button class="btn btn--small btn--reset" id="btn-reset">↺ Reset</button>
+          <button class="btn btn--ghost" id="btn-reset">↺ Reset</button>
         </div>
       </div>
-      <div class="cards-grid">
 
-        <div class="card card--stat" id="card-ping">
-          <div class="card-label">Avg Latency</div>
-          <div class="card-value" id="stat-ping">—</div>
-          <div class="card-unit">ms</div>
+      <div class="stats-grid">
+        <div class="stat-card" style="--i:0">
+          <div class="stat-card-label">Avg Latency</div>
+          <div class="stat-card-value" id="stat-ping">—</div>
+          <div class="stat-card-unit">ms</div>
+          <div class="stat-trend" id="trend-ping"></div>
+        </div>
+        <div class="stat-card" style="--i:1">
+          <div class="stat-card-label">Avg Download</div>
+          <div class="stat-card-value" id="stat-download">—</div>
+          <div class="stat-card-unit">Mbps</div>
+          <div class="stat-trend" id="trend-dl"></div>
+        </div>
+        <div class="stat-card" style="--i:2">
+          <div class="stat-card-label">Avg Upload</div>
+          <div class="stat-card-value" id="stat-upload">—</div>
+          <div class="stat-card-unit">Mbps</div>
+          <div class="stat-trend" id="trend-ul"></div>
+        </div>
+        <div class="stat-card" style="--i:3">
+          <div class="stat-card-label">Quality Score</div>
+          <div class="stat-card-value" id="stat-quality">—</div>
+          <div class="stat-card-unit">/ 100</div>
+          <div class="stat-trend" id="trend-quality"></div>
+        </div>
+        <div class="stat-card" style="--i:4">
+          <div class="stat-card-label">Best Download</div>
+          <div class="stat-card-value" id="stat-best-dl">—</div>
+          <div class="stat-card-unit">Mbps</div>
+        </div>
+        <div class="stat-card" style="--i:5">
+          <div class="stat-card-label">Best Ping</div>
+          <div class="stat-card-value" id="stat-best-ping">—</div>
+          <div class="stat-card-unit">ms</div>
+        </div>
+      </div>
+
+      <!-- Health Timeline Chart -->
+      <div class="glass-card">
+        <div class="card-header-row">
+          <span class="card-title">Network Health Timeline</span>
+          <button class="btn btn--ghost btn--sm" id="btn-refresh-health">Refresh</button>
+        </div>
+        <canvas id="chart-health" height="120"></canvas>
+      </div>
+    </section>
+
+    <!-- ── TESTS ─────────────────────────────────────────────────── -->
+    <section class="page-section" id="section-tests">
+      <div class="section-header">
+        <h2 class="section-heading">Run Tests</h2>
+      </div>
+
+      <div class="test-grid">
+
+        <div class="glass-card">
+          <div class="card-header-row">
+            <div class="test-title-row">
+              <span class="test-icon accent">◎</span>
+              <span class="card-title">Ping Test</span>
+            </div>
+            <div class="auto-row">
+              <label class="toggle-wrap" title="Auto-ping">
+                <input type="checkbox" id="auto-ping-toggle"/>
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+              <span class="muted-text">Auto</span>
+              <input class="field field--tiny" id="auto-ping-interval" type="number" value="10" min="3" max="60"/>
+              <span class="muted-text">s</span>
+            </div>
+          </div>
+          <div class="controls-row">
+            <label class="field-label">Host</label>
+            <input class="field" id="ping-host" type="text" value="8.8.8.8"/>
+            <label class="field-label">Packets</label>
+            <input class="field field--short" id="ping-count" type="number" value="4" min="1" max="20"/>
+            <button class="btn btn--primary" id="btn-ping">Run</button>
+          </div>
+          <div class="result-panel" id="result-ping">
+            <span class="muted-text">Results will appear here…</span>
+          </div>
         </div>
 
-        <div class="card card--stat" id="card-download">
-          <div class="card-label">Avg Download</div>
-          <div class="card-value" id="stat-download">—</div>
-          <div class="card-unit">Mbps</div>
+        <div class="glass-card">
+          <div class="card-header-row">
+            <div class="test-title-row">
+              <span class="test-icon accent2">⇅</span>
+              <span class="card-title">Speed Test</span>
+            </div>
+          </div>
+          <p class="muted-text" style="margin-bottom:.8rem">Finds the nearest speedtest.net server. Takes 10–30 s.</p>
+          <button class="btn btn--primary" id="btn-speed">Run Speed Test</button>
+          <div class="result-panel" id="result-speed" style="margin-top:1rem">
+            <span class="muted-text">Results will appear here…</span>
+          </div>
         </div>
 
-        <div class="card card--stat" id="card-upload">
-          <div class="card-label">Avg Upload</div>
-          <div class="card-value" id="stat-upload">—</div>
-          <div class="card-unit">Mbps</div>
+        <div class="glass-card test-card--wide">
+          <div class="card-header-row">
+            <div class="test-title-row">
+              <span class="test-icon accent">⊕</span>
+              <span class="card-title">Multi-Host Comparison</span>
+            </div>
+          </div>
+          <div class="controls-row">
+            <input class="field field--wide" id="multi-hosts" type="text"
+              value="8.8.8.8, 1.1.1.1, 9.9.9.9, 208.67.222.222"
+              placeholder="host1, host2, host3, host4"/>
+            <button class="btn btn--primary" id="btn-multi-ping">Compare</button>
+          </div>
+          <div class="multi-grid" id="multi-results"></div>
         </div>
 
-        <div class="card card--stat" id="card-tests">
-          <div class="card-label">Tests Run</div>
-          <div class="card-value" id="stat-tests">—</div>
-          <div class="card-unit">total</div>
+        <div class="glass-card">
+          <div class="card-header-row">
+            <div class="test-title-row">
+              <span class="test-icon accent2">⬡</span>
+              <span class="card-title">DNS Lookup</span>
+            </div>
+          </div>
+          <div class="controls-row">
+            <input class="field" id="dns-host" type="text" value="google.com"/>
+            <button class="btn btn--primary" id="btn-dns">Resolve</button>
+          </div>
+          <div class="result-panel" id="result-dns" style="margin-top:1rem">
+            <span class="muted-text">Results will appear here…</span>
+          </div>
         </div>
 
       </div>
     </section>
 
-    <!-- ── Run Tests ────────────────────────────────────── -->
-    <section class="section" id="section-run">
-      <h2 class="section-title">Run Tests</h2>
-      <div class="test-panel">
-
-        <!-- Ping Test -->
-        <div class="test-block">
-          <div class="test-block-header">
-            <span class="test-icon">◎</span>
-            <span class="test-name">Ping Test</span>
-          </div>
-          <div class="test-controls">
-            <label class="input-label" for="ping-host">Host</label>
-            <input class="input-field" id="ping-host" type="text" value="8.8.8.8" placeholder="e.g. 8.8.8.8" />
-            <label class="input-label" for="ping-count">Packets</label>
-            <input class="input-field input-field--short" id="ping-count" type="number" value="4" min="1" max="20" />
-            <button class="btn btn--run" id="btn-ping">Run Ping</button>
-          </div>
-          <div class="result-box" id="result-ping">
-            <span class="result-placeholder">Results will appear here…</span>
-          </div>
+    <!-- ── NETWORK ────────────────────────────────────────────────── -->
+    <section class="page-section" id="section-network">
+      <div class="section-header">
+        <h2 class="section-heading">Network</h2>
+        <div class="section-actions">
+          <button class="btn btn--ghost btn--sm" id="btn-bw-toggle">▶ Live Bandwidth</button>
         </div>
-
-        <!-- Speed Test -->
-        <div class="test-block">
-          <div class="test-block-header">
-            <span class="test-icon">⇅</span>
-            <span class="test-name">Speed Test</span>
-          </div>
-          <div class="test-controls">
-            <p class="test-note">Connects to the nearest speedtest.net server. Takes 10–30 seconds.</p>
-            <button class="btn btn--run" id="btn-speed">Run Speed Test</button>
-          </div>
-          <div class="result-box" id="result-speed">
-            <span class="result-placeholder">Results will appear here…</span>
-          </div>
-        </div>
-
       </div>
-    </section>
 
-    <!-- ── Network Info ─────────────────────────────────── -->
-    <section class="section" id="section-network">
-      <h2 class="section-title">Network Info</h2>
-      <div class="info-grid">
+      <!-- Bandwidth monitor -->
+      <div class="glass-card" id="bw-card">
+        <div class="card-header-row">
+          <span class="card-title">Interface Bandwidth</span>
+          <span class="muted-text" id="bw-status-label">Stopped</span>
+        </div>
+        <div class="bw-grid" id="bw-grid">
+          <span class="muted-text">Start the monitor to see live data.</span>
+        </div>
+      </div>
 
-        <!-- Interfaces -->
-        <div class="card card--table">
+      <div class="two-col">
+        <div class="glass-card">
           <div class="card-header-row">
             <span class="card-title">Interfaces</span>
-            <button class="btn btn--small" id="btn-interfaces">Refresh</button>
+            <button class="btn btn--ghost btn--sm" id="btn-interfaces">Refresh</button>
           </div>
           <div class="table-wrap" id="table-interfaces">
-            <span class="result-placeholder">Click Refresh to load…</span>
+            <span class="muted-text">Click Refresh…</span>
           </div>
         </div>
-
-        <!-- Active Connections -->
-        <div class="card card--table">
+        <div class="glass-card">
           <div class="card-header-row">
             <span class="card-title">Active Connections</span>
-            <button class="btn btn--small" id="btn-connections">Refresh</button>
+            <div class="row-gap">
+              <input class="field field--search" id="conn-search" placeholder="Filter…"/>
+              <button class="btn btn--ghost btn--sm" id="btn-connections">Refresh</button>
+            </div>
           </div>
           <div class="table-wrap" id="table-connections">
-            <span class="result-placeholder">Click Refresh to load…</span>
+            <span class="muted-text">Click Refresh…</span>
           </div>
         </div>
-
       </div>
     </section>
 
-    <!-- ── History Charts ───────────────────────────────── -->
-    <section class="section" id="section-history">
-      <h2 class="section-title">History</h2>
-      <div class="charts-grid">
+    <!-- ── ANOMALIES ──────────────────────────────────────────────── -->
+    <section class="page-section" id="section-anomalies">
+      <div class="section-header">
+        <h2 class="section-heading">Anomaly Log</h2>
+        <p class="section-desc">
+          NetProbe compares every test result against your historical baseline
+          and flags anything abnormal automatically.
+        </p>
+      </div>
+      <div class="glass-card">
+        <div class="card-header-row">
+          <span class="card-title">Detected Anomalies</span>
+          <button class="btn btn--ghost btn--sm" id="btn-refresh-anomalies">Refresh</button>
+        </div>
+        <div id="anomaly-list">
+          <span class="muted-text">No anomalies detected yet. Run some tests first.</span>
+        </div>
+      </div>
+    </section>
 
-        <div class="card card--chart">
+    <!-- ── HISTORY ────────────────────────────────────────────────── -->
+    <section class="page-section" id="section-history">
+      <div class="section-header">
+        <h2 class="section-heading">History</h2>
+        <div class="section-actions">
+          <button class="btn btn--ghost btn--sm" id="btn-export-csv">⬇ Export CSV</button>
+          <button class="btn btn--danger btn--sm" id="btn-clear-history">🗑 Clear All</button>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="glass-card">
           <div class="card-header-row">
             <span class="card-title">Latency Over Time</span>
-            <button class="btn btn--small" id="btn-refresh-ping-chart">Refresh</button>
+            <button class="btn btn--ghost btn--sm" id="btn-refresh-ping-chart">Refresh</button>
           </div>
           <canvas id="chart-ping" height="180"></canvas>
         </div>
-
-        <div class="card card--chart">
+        <div class="glass-card">
           <div class="card-header-row">
             <span class="card-title">Speed Over Time</span>
-            <button class="btn btn--small" id="btn-refresh-speed-chart">Refresh</button>
+            <button class="btn btn--ghost btn--sm" id="btn-refresh-speed-chart">Refresh</button>
           </div>
           <canvas id="chart-speed" height="180"></canvas>
         </div>
+      </div>
 
+      <div class="glass-card">
+        <div class="card-header-row">
+          <span class="card-title">All Records</span>
+          <div class="row-gap">
+            <select class="field field--select" id="history-filter">
+              <option value="all">All Tests</option>
+              <option value="ping">Ping</option>
+              <option value="speed">Speed</option>
+            </select>
+            <span class="muted-text" id="history-count">0 records</span>
+          </div>
+        </div>
+        <div class="table-wrap" id="history-table">
+          <span class="muted-text">Loading…</span>
+        </div>
       </div>
     </section>
 
   </main>
 
-  <!-- ══════════════════════════════════════════
-       FOOTER
-  ══════════════════════════════════════════ -->
+  <!-- FOOTER -->
   <footer class="site-footer">
-    <span>NetProbe &mdash; 3rd Year Project</span>
+    <span>NetProbe — 3rd Year Project</span>
     <span id="footer-time"></span>
   </footer>
 
-  <!-- ── History Modal ── -->
-  <div class="modal-backdrop" id="modal-backdrop" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <!-- TOAST -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
-      <div class="modal-header">
-        <span class="modal-title" id="modal-title">⏱ Test History</span>
-        <div class="modal-controls">
-          <select class="input-field input-field--select" id="modal-filter">
-            <option value="all">All Tests</option>
-            <option value="ping">Ping Only</option>
-            <option value="speed">Speed Only</option>
-          </select>
-          <button class="btn btn--small modal-close" id="btn-modal-close">✕ Close</button>
-        </div>
-      </div>
-
-      <div class="modal-meta">
-        Showing last <strong>31</strong> records (circular queue)
-        &nbsp;·&nbsp; <span id="modal-count">0</span> loaded
-      </div>
-
-      <div class="modal-body">
-        <div class="table-wrap" id="modal-table">
-          <span class="result-placeholder">Loading history…</span>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ── Loading Overlay (shown during long ops) ── -->
+  <!-- LOADING OVERLAY -->
   <div class="loading-overlay" id="loading-overlay" aria-hidden="true">
-    <div class="loading-spinner"></div>
+    <div class="loading-ring"></div>
     <p class="loading-msg" id="loading-msg">Running test…</p>
   </div>
 
