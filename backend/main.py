@@ -22,6 +22,7 @@ from database import (
     init_db, save_result, get_history, get_stats_summary, delete_history,
     save_anomaly, get_anomaly_log,
 )
+from analyzer import analyze_result
 
 
 # ── Lifespan (replaces deprecated @app.on_event) ─────────────────────────────
@@ -67,6 +68,15 @@ def ping(
     result = run_ping_test(host=host, count=count)
     save_result("ping", result)
 
+    # Compare against historical baseline; flag anomalies if any
+    history = get_history(test_type="ping", limit=50)
+    anomaly = analyze_result("ping", result, history)
+    if anomaly:
+        save_anomaly(anomaly)
+        result["anomaly"] = anomaly
+
+    return JSONResponse(content=result)
+
 
 @app.get("/ping/multi", tags=["Tests"])
 def ping_multi(
@@ -85,6 +95,15 @@ def speed():
     """Download/upload speed test via speedtest.net (10–30 seconds)."""
     result = run_speed_test()
     save_result("speed", result)
+
+    # Compare against historical baseline; flag anomalies if any
+    history = get_history(test_type="speed", limit=20)
+    anomaly = analyze_result("speed", result, history)
+    if anomaly:
+        save_anomaly(anomaly)
+        result["anomaly"] = anomaly
+
+    return JSONResponse(content=result)
 
 
 @app.get("/dns", tags=["Tests"])
@@ -130,6 +149,11 @@ def stats():
     """Aggregate statistics across all saved tests."""
     return JSONResponse(content=get_stats_summary())
 
+
+@app.get("/anomalies", tags=["History"])
+def anomalies(limit: int = Query(20, ge=1, le=200, description="Max records to return")):
+    """Return detected anomalies (latency spikes, speed drops, packet loss surges)."""
+    return JSONResponse(content={"anomalies": get_anomaly_log(limit=limit)})
 
 
 @app.delete("/history", tags=["History"])
