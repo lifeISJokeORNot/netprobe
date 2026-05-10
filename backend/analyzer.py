@@ -54,7 +54,8 @@ def _analyze_ping(result: dict, history: list[dict]) -> dict | None:
         reasons.append(f"Packet loss {current_loss}% (threshold: {LOSS_THRESHOLD}%)")
         new_sev = "critical" if current_loss >= 50 else "warning"
         # Severity may only escalate, never downgrade an already-critical state
-        severity = "critical" if current_loss >= 50 else "warning"
+        if severity != "critical":
+            severity = new_sev
 
     if not reasons:
         return None
